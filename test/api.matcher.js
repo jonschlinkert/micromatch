@@ -82,88 +82,92 @@ describe('.matcher()', () => {
     });
   });
 
-  describe('backlashes for path separators, on posix', () => {
-    let format = str => str;
+  if (process.platform !== 'win32') {  
+    describe('backlashes for path separators, on posix', () => {
+      let format = str => str;
 
-    it('should return an array of matches for a literal string', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
-      assert.deepEqual(mm(fixtures, '(a/b)', { format }), []);
-      assert.deepEqual(mm(fixtures, 'a/b', { format }), []);
+      it('should return an array of matches for a literal string', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
+        assert.deepEqual(mm(fixtures, '(a/b)', { format }), []);
+        assert.deepEqual(mm(fixtures, 'a/b', { format }), []);
+      });
+
+      it('should support regex logical or', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c'];
+        assert.deepEqual(mm(fixtures, 'a/(a|c)', { format }), []);
+        assert.deepEqual(mm(fixtures, 'a/(a|b|c)', { format }), []);
+      });
+
+      it('should support regex ranges', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'a\\x\\y', 'a\\x'];
+        assert.deepEqual(mm(fixtures, 'a/[b-c]', { format }), []);
+        assert.deepEqual(mm(fixtures, 'a/[a-z]', { format }), []);
+      });
+
+      it('should support negation patterns', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
+        assert.deepEqual(mm(fixtures, '!*/*', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!*/b', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!a/*', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!a/b', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!a/(b)', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!a/(*)', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!(*/b)', { format }), fixtures);
+        assert.deepEqual(mm(fixtures, '!(a/b)', { format }), fixtures);
+
+        assert.deepEqual(mm(fixtures, '!*/*', { windows: true }), []);
+        assert.deepEqual(mm(fixtures, ['!*/b'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!a/*'], { windows: true }), ['b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!a/b'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!a/(b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!a/(*)'], { windows: true }), ['b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!(*/b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/c']);
+        assert.deepEqual(mm(fixtures, ['!(a/b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+      });
     });
+  }
 
-    it('should support regex logical or', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c'];
-      assert.deepEqual(mm(fixtures, 'a/(a|c)', { format }), []);
-      assert.deepEqual(mm(fixtures, 'a/(a|b|c)', { format }), []);
+  if (process.platform === 'win32') {
+    describe('windows paths', () => {
+      beforeEach(() => {
+        path.sep = '\\';
+      });
+
+      afterEach(() => {
+        path.sep = sep;
+      });
+
+      it('should return an array of matches for a literal string', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
+        assert.deepEqual(mm(fixtures, '(a/b)'), ['a/b']);
+        assert.deepEqual(mm(fixtures, '(a/b)', { windows: false }), []);
+        assert.deepEqual(mm(fixtures, 'a/b'), ['a/b']);
+        assert.deepEqual(mm(fixtures, 'a/b', { windows: false }), []);
+      });
+
+      it('should support regex logical or', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c'];
+        assert.deepEqual(mm(fixtures, 'a/(a|c)'), ['a/a', 'a/c']);
+        assert.deepEqual(mm(fixtures, 'a/(a|b|c)'), ['a/a', 'a/b', 'a/c']);
+      });
+
+      it('should support regex ranges', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'a\\x\\y', 'a\\x'];
+        assert.deepEqual(mm(fixtures, 'a/[b-c]'), ['a/b', 'a/c']);
+        assert.deepEqual(mm(fixtures, 'a/[a-z]'), ['a/a', 'a/b', 'a/c', 'a/x']);
+      });
+
+      it('should support negation patterns', () => {
+        let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
+        assert.deepEqual(mm(fixtures, '!*/*'), []);
+        assert.deepEqual(mm(fixtures, '!*/b'), ['a/a', 'a/c', 'b/a', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!a/*'), ['b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!a/b'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!a/(b)'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!a/(*)'), ['b/a', 'b/b', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!(*/b)'), ['a/a', 'a/c', 'b/a', 'b/c']);
+        assert.deepEqual(mm(fixtures, '!(a/b)'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
+      });
     });
-
-    it('should support regex ranges', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'a\\x\\y', 'a\\x'];
-      assert.deepEqual(mm(fixtures, 'a/[b-c]', { format }), []);
-      assert.deepEqual(mm(fixtures, 'a/[a-z]', { format }), []);
-    });
-
-    it('should support negation patterns', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
-      assert.deepEqual(mm(fixtures, '!*/*', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!*/b', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!a/*', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!a/b', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!a/(b)', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!a/(*)', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!(*/b)', { format }), fixtures);
-      assert.deepEqual(mm(fixtures, '!(a/b)', { format }), fixtures);
-
-      assert.deepEqual(mm(fixtures, '!*/*', { windows: true }), []);
-      assert.deepEqual(mm(fixtures, ['!*/b'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!a/*'], { windows: true }), ['b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!a/b'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!a/(b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!a/(*)'], { windows: true }), ['b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!(*/b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/c']);
-      assert.deepEqual(mm(fixtures, ['!(a/b)'], { windows: true }), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-    });
-  });
-
-  describe('windows paths', () => {
-    beforeEach(() => {
-      path.sep = '\\';
-    });
-
-    afterEach(() => {
-      path.sep = sep;
-    });
-
-    it('should return an array of matches for a literal string', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
-      assert.deepEqual(mm(fixtures, '(a/b)'), ['a/b']);
-      assert.deepEqual(mm(fixtures, '(a/b)', { windows: false }), []);
-      assert.deepEqual(mm(fixtures, 'a/b'), ['a/b']);
-      assert.deepEqual(mm(fixtures, 'a/b', { windows: false }), []);
-    });
-
-    it('should support regex logical or', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c'];
-      assert.deepEqual(mm(fixtures, 'a/(a|c)'), ['a/a', 'a/c']);
-      assert.deepEqual(mm(fixtures, 'a/(a|b|c)'), ['a/a', 'a/b', 'a/c']);
-    });
-
-    it('should support regex ranges', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'a\\x\\y', 'a\\x'];
-      assert.deepEqual(mm(fixtures, 'a/[b-c]'), ['a/b', 'a/c']);
-      assert.deepEqual(mm(fixtures, 'a/[a-z]'), ['a/a', 'a/b', 'a/c', 'a/x']);
-    });
-
-    it('should support negation patterns', () => {
-      let fixtures = ['a\\a', 'a\\b', 'a\\c', 'b\\a', 'b\\b', 'b\\c'];
-      assert.deepEqual(mm(fixtures, '!*/*'), []);
-      assert.deepEqual(mm(fixtures, '!*/b'), ['a/a', 'a/c', 'b/a', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!a/*'), ['b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!a/b'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!a/(b)'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!a/(*)'), ['b/a', 'b/b', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!(*/b)'), ['a/a', 'a/c', 'b/a', 'b/c']);
-      assert.deepEqual(mm(fixtures, '!(a/b)'), ['a/a', 'a/c', 'b/a', 'b/b', 'b/c']);
-    });
-  });
+  }
 });
