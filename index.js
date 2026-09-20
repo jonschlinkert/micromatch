@@ -293,16 +293,17 @@ micromatch.some = (list, patterns, options) => {
  * @param {String|Array} `list` The string or array of strings to test.
  * @param {String|Array} `patterns` One or more glob patterns to use for matching.
  * @param {Object} `options` See available [options](#options) for changing how matches are performed
- * @return {Boolean} Returns true if all `patterns` matches all of the strings in `list`
+ * @return {Boolean} Returns true if every string in `list` matches any of the given `patterns`
  * @api public
  */
 
 micromatch.every = (list, patterns, options) => {
   let items = [].concat(list);
 
-  for (let pattern of [].concat(patterns)) {
-    let isMatch = picomatch(String(pattern), options);
-    if (!items.every(item => isMatch(item))) {
+  // Use the full matcher (positive OR + negation set ops), same as nanomatch/v3:
+  // every list item must be kept by the pattern set — not "AND of each pattern".
+  for (let i = 0; i < items.length; i++) {
+    if (micromatch(items[i], patterns, options).length !== 1) {
       return false;
     }
   }
