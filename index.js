@@ -11,6 +11,30 @@ const hasBraces = v => {
   return index > -1 && v.indexOf('}', index) > -1;
 };
 
+
+const hasDotRangeBraces = v => {
+  let depth = 0;
+  for (let i = 0; i < v.length; i++) {
+    if (v[i] === '{') { depth++; continue; }
+    if (v[i] === '}') { depth--; continue; }
+    if (depth > 0 && v[i] === '.' && v[i + 1] === '.') return true;
+  }
+  return false;
+};
+
+const expandDotRanges = (patterns, options) => {
+  if (!patterns || (options && options.nobrace === true)) return [].concat(patterns);
+  const result = [];
+  for (const p of [].concat(patterns)) {
+    if (typeof p === 'string' && hasDotRangeBraces(p)) {
+      result.push(...braces(p, options));
+    } else {
+      result.push(p);
+    }
+  }
+  return result;
+};
+
 /**
  * Returns an array of strings that match one or more glob patterns.
  *
@@ -46,7 +70,8 @@ const micromatch = (list, patterns, options) => {
   };
 
   for (let i = 0; i < patterns.length; i++) {
-    let isMatch = picomatch(String(patterns[i]), { ...options, onResult }, true);
+    let pattern = expandDotRanges(String(patterns[i]), options);
+    let isMatch = picomatch(pattern.length === 1 ? pattern[0] : pattern, { ...options, onResult }, true);
     let negated = isMatch.state.negated || isMatch.state.negatedExtglob;
     if (negated) negatives++;
 
@@ -106,7 +131,10 @@ micromatch.match = micromatch;
  * @api public
  */
 
-micromatch.matcher = (pattern, options) => picomatch(pattern, options);
+micromatch.matcher = (pattern, options) => {
+  const patterns = expandDotRanges(pattern, options);
+  return picomatch(patterns.length === 1 ? patterns[0] : patterns, options);
+};
 
 /**
  * Returns true if **any** of the given glob `patterns` match the specified `string`.
@@ -125,7 +153,10 @@ micromatch.matcher = (pattern, options) => picomatch(pattern, options);
  * @api public
  */
 
-micromatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str);
+micromatch.isMatch = (str, patterns, options) => {
+  const expanded = expandDotRanges(patterns, options);
+  return picomatch(expanded.length === 1 ? expanded[0] : expanded, options)(str);
+};
 
 /**
  * Backwards compatibility
@@ -365,7 +396,7 @@ micromatch.all = (str, patterns, options) => {
 
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
-  let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
+  let regex = micromatch.makeRe(String(glob), { ...options, capture: true });
   let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
 
   if (match) {
@@ -389,7 +420,15 @@ micromatch.capture = (glob, input, options) => {
  * @api public
  */
 
-micromatch.makeRe = (...args) => picomatch.makeRe(...args);
+micromatch.makeRe = (pattern, options) => {
+  const expanded = expandDotRanges(pattern, options);
+  if (expanded.length === 1) return picomatch.makeRe(expanded[0], options);
+  // Preserve flags from the first alternative; brace expansion can yield multiple
+  // patterns when `{expand:true}` is set.
+  const first = picomatch.makeRe(expanded[0], options);
+  const source = expanded.map(p => picomatch.makeRe(p, options).source).join('|');
+  return new RegExp(`(?:${source})`, first.flags);
+};
 
 /**
  * Scan a glob pattern to separate the pattern into segments. Used
