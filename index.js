@@ -11,6 +11,39 @@ const hasBraces = v => {
   return index > -1 && v.indexOf('}', index) > -1;
 };
 
+const stripLeadingDotSlash = str => {
+  if (typeof str === 'string' && str.startsWith('./') && str.length > 2) {
+    return str.slice(2);
+  }
+  return str;
+};
+
+const hasDotSlashPrefix = pattern => {
+  if (Array.isArray(pattern)) return pattern.some(hasDotSlashPrefix);
+  let p = String(pattern);
+  if (p.charAt(0) === '!') p = p.slice(1);
+  return p.startsWith('./') && p.length > 2;
+};
+
+/**
+ * Picomatch strips a leading `./` from patterns, but not from input paths.
+ * When the pattern has that prefix, pass `format` so both sides stay aligned.
+ */
+
+const optionsWithDotSlash = (pattern, options) => {
+  if (!hasDotSlashPrefix(pattern)) {
+    return options;
+  }
+
+  const userFormat = options && options.format;
+  const format = input => {
+    const next = typeof userFormat === 'function' ? userFormat(input) : input;
+    return stripLeadingDotSlash(next);
+  };
+
+  return { ...options, format };
+};
+
 /**
  * Returns an array of strings that match one or more glob patterns.
  *
@@ -46,7 +79,7 @@ const micromatch = (list, patterns, options) => {
   };
 
   for (let i = 0; i < patterns.length; i++) {
-    let isMatch = picomatch(String(patterns[i]), { ...options, onResult }, true);
+    let isMatch = picomatch(String(patterns[i]), { ...optionsWithDotSlash(patterns[i], options), onResult }, true);
     let negated = isMatch.state.negated || isMatch.state.negatedExtglob;
     if (negated) negatives++;
 
@@ -106,7 +139,7 @@ micromatch.match = micromatch;
  * @api public
  */
 
-micromatch.matcher = (pattern, options) => picomatch(pattern, options);
+micromatch.matcher = (pattern, options) => picomatch(pattern, optionsWithDotSlash(pattern, options));
 
 /**
  * Returns true if **any** of the given glob `patterns` match the specified `string`.
@@ -125,7 +158,7 @@ micromatch.matcher = (pattern, options) => picomatch(pattern, options);
  * @api public
  */
 
-micromatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str);
+micromatch.isMatch = (str, patterns, options) => picomatch(patterns, optionsWithDotSlash(patterns, options))(str);
 
 /**
  * Backwards compatibility
@@ -265,7 +298,7 @@ micromatch.some = (list, patterns, options) => {
   let items = [].concat(list);
 
   for (let pattern of [].concat(patterns)) {
-    let isMatch = picomatch(String(pattern), options);
+    let isMatch = picomatch(String(pattern), optionsWithDotSlash(pattern, options));
     if (items.some(item => isMatch(item))) {
       return true;
     }
@@ -301,7 +334,7 @@ micromatch.every = (list, patterns, options) => {
   let items = [].concat(list);
 
   for (let pattern of [].concat(patterns)) {
-    let isMatch = picomatch(String(pattern), options);
+    let isMatch = picomatch(String(pattern), optionsWithDotSlash(pattern, options));
     if (!items.every(item => isMatch(item))) {
       return false;
     }
@@ -341,7 +374,7 @@ micromatch.all = (str, patterns, options) => {
     throw new TypeError(`Expected a string: "${util.inspect(str)}"`);
   }
 
-  return [].concat(patterns).every(p => picomatch(p, options)(str));
+  return [].concat(patterns).every(p => picomatch(p, optionsWithDotSlash(p, options))(str));
 };
 
 /**
@@ -366,7 +399,11 @@ micromatch.all = (str, patterns, options) => {
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
   let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
-  let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
+  let value = posix ? utils.toPosixSlashes(input) : input;
+  if (hasDotSlashPrefix(glob)) {
+    value = stripLeadingDotSlash(value);
+  }
+  let match = regex.exec(value);
 
   if (match) {
     return match.slice(1).map(v => v === void 0 ? '' : v);

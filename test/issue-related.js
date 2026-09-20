@@ -69,4 +69,13 @@ describe('issue-related tests', () => {
     assert(mm.isMatch('a/foo.js', '**/foo.js', { dot: true }));
     assert(mm.isMatch('foo.js', '**/foo.js', { dot: true }));
   });
+
+  it('micromatch issue#279 - leading ./ with character class', () => {
+    assert(mm.isMatch('baz', '[a-z]*'));
+    assert(mm.isMatch('./baz', './[a-z]*'));
+    assert(mm.isMatch('baz', './[a-z]*'));
+    assert(mm.matcher('./[a-z]*')('./baz'));
+    assert(mm.isMatch('./foo/bar', './foo/[a-z]*'));
+    assert.deepEqual(mm(['./baz', 'qux'], './[a-z]*'), ['baz', 'qux']);
+  });
 });
