@@ -244,6 +244,9 @@ micromatch.matchKeys = (obj, patterns, options) => {
 
 /**
  * Returns true if some of the strings in the given `list` match any of the given glob `patterns`.
+ * Each pattern is tested independently. A negated pattern does not exclude
+ * strings matched by another pattern. Use `micromatch(list, patterns)` to
+ * filter a list with both positive and negative patterns.
  *
  * ```js
  * const mm = require('micromatch');
@@ -252,12 +255,14 @@ micromatch.matchKeys = (obj, patterns, options) => {
  * console.log(mm.some(['foo.js', 'bar.js'], ['*.js', '!foo.js']));
  * // true
  * console.log(mm.some(['foo.js'], ['*.js', '!foo.js']));
+ * // true
+ * console.log(mm.some(['foo.js'], ['!foo.js']));
  * // false
  * ```
  * @param {String|Array} `list` The string or array of strings to test. Returns as soon as the first match is found.
  * @param {String|Array} `patterns` One or more glob patterns to use for matching.
  * @param {Object} `options` See available [options](#options) for changing how matches are performed
- * @return {Boolean} Returns true if any `patterns` matches any of the strings in `list`
+ * @return {Boolean} Returns true if any pattern matches any of the strings in `list`
  * @api public
  */
 
@@ -275,7 +280,9 @@ micromatch.some = (list, patterns, options) => {
 
 /**
  * Returns true if every string in the given `list` matches
- * any of the given glob `patterns`.
+ * every one of the given glob `patterns`.
+ * To test whether each string matches at least one pattern, use
+ * `list.every(str => mm.isMatch(str, patterns))` instead.
  *
  * ```js
  * const mm = require('micromatch');
@@ -289,11 +296,15 @@ micromatch.some = (list, patterns, options) => {
  * // false
  * console.log(mm.every(['foo.js'], ['*.js', '!foo.js']));
  * // false
+ * console.log(mm.every(['foo.js', 'bar.css'], ['*.js', '*.css']));
+ * // false
+ * console.log(['foo.js', 'bar.css'].every(str => mm.isMatch(str, ['*.js', '*.css'])));
+ * // true
  * ```
  * @param {String|Array} `list` The string or array of strings to test.
  * @param {String|Array} `patterns` One or more glob patterns to use for matching.
  * @param {Object} `options` See available [options](#options) for changing how matches are performed
- * @return {Boolean} Returns true if all `patterns` matches all of the strings in `list`
+ * @return {Boolean} Returns true if every pattern matches every string in `list`
  * @api public
  */
 
@@ -332,7 +343,7 @@ micromatch.every = (list, patterns, options) => {
  * @param {String|Array} `str` The string to test.
  * @param {String|Array} `patterns` One or more glob patterns to use for matching.
  * @param {Object} `options` See available [options](#options) for changing how matches are performed
- * @return {Boolean} Returns true if any patterns match `str`
+ * @return {Boolean} Returns true if every pattern matches `str`
  * @api public
  */
 
