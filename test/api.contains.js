@@ -16,6 +16,32 @@ describe('.contains()', () => {
   });
 
   describe('patterns', () => {
+    it('should apply ignore patterns to literal substring matches', () => {
+      assert(!mm.contains('foo.js', 'foo', { ignore: '*.js' }));
+      assert(!mm.contains('foo.js', 'foo', { ignore: ['*.txt', '*.js'] }));
+      assert(!mm.contains('./foo.js', 'foo', { ignore: '*.js' }));
+      assert(!mm.contains('foo.js', ['foo', '.js'], { ignore: '*.js' }));
+      assert(mm.contains('foo.js', 'foo', { ignore: '*.txt' }));
+      assert(mm.contains('foo.js', 'foo', { ignore: [] }));
+    });
+
+    it('should preserve literal metacharacters when ignore patterns do not match', () => {
+      assert(mm.contains('xfoo[ab]y', 'foo[ab]', { ignore: '*.js' }));
+      assert(!mm.contains('xfoo[ab]y', 'foo[ab]', { ignore: 'xfoo*' }));
+    });
+
+    it('should use matching options without calling match hooks for ignore checks', () => {
+      let calls = 0;
+      const options = {
+        ignore: '*.JS',
+        nocase: true,
+        onMatch: () => calls++,
+        onResult: () => calls++
+      };
+      assert(!mm.contains('foo.js', 'foo', options));
+      assert.strictEqual(calls, 0);
+    });
+
     it('should correctly deal with empty patterns', () => {
       assert(!mm.contains('ab', ''));
       assert(!mm.contains('a', ''));
