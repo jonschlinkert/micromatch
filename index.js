@@ -205,6 +205,11 @@ micromatch.contains = (str, pattern, options) => {
     }
 
     if (str.includes(pattern) || (str.startsWith('./') && str.slice(2).includes(pattern))) {
+      // Literal matches still need to respect ignore patterns.
+      if (options && options.ignore) {
+        const ignoreOptions = { ...options, contains: true, ignore: null, onMatch: null, onResult: null };
+        return !picomatch(options.ignore, ignoreOptions)(str);
+      }
       return true;
     }
   }
