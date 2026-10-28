@@ -69,4 +69,39 @@ describe('issue-related tests', () => {
     assert(mm.isMatch('a/foo.js', '**/foo.js', { dot: true }));
     assert(mm.isMatch('foo.js', '**/foo.js', { dot: true }));
   });
+
+  // https://github.com/micromatch/micromatch/issues/300
+  it('micromatch issue#300 - zero-padded and stepped brace ranges', () => {
+    assert.deepEqual(mm.braces('file{01..05}.txt', { expand: true }), [
+      'file01.txt',
+      'file02.txt',
+      'file03.txt',
+      'file04.txt',
+      'file05.txt'
+    ]);
+
+    assert(mm.isMatch('file04.txt', 'file{01..05}.txt'));
+    assert(mm.isMatch('file01.txt', 'file{01..05}.txt'));
+    assert(mm.isMatch('file05.txt', 'file{01..05}.txt'));
+    assert(!mm.isMatch('file00.txt', 'file{01..05}.txt'));
+    assert(!mm.isMatch('file06.txt', 'file{01..05}.txt'));
+
+    assert.deepEqual(mm(['file01.txt', 'file04.txt', 'file99.txt'], 'file{01..05}.txt'), [
+      'file01.txt',
+      'file04.txt'
+    ]);
+
+    assert(mm.isMatch('4', '{2..10..2}'));
+    assert(mm.isMatch('10', '{2..10..2}'));
+    assert(!mm.isMatch('3', '{2..10..2}'));
+    assert(!mm.isMatch('5', '{2..10..2}'));
+
+    // plain ranges still work
+    assert(mm.isMatch('file4.txt', 'file{1..5}.txt'));
+    assert(mm.isMatch('b', '{a..c}'));
+
+    assert(mm.makeRe('file{01..05}.txt').test('file04.txt'));
+    assert(mm.makeRe('{2..10..2}').test('4'));
+    assert(!/01\.\.05/.test(mm.makeRe('file{01..05}.txt').source));
+  });
 });

@@ -12,6 +12,42 @@ const hasBraces = v => {
 };
 
 /**
+ * True when a pattern contains a brace *range* (`{1..5}`, `{01..05}`,
+ * `{2..10..2}`, `{a..c}`). Comma lists like `{a,b}` or `{,/}` are left
+ * to picomatch — compiling those with `braces` changes `*{,/}` semantics.
+ * @param {String} pattern
+ * @return {Boolean}
+ */
+
+const hasBraceRange = pattern => {
+  let i = pattern.indexOf('{');
+  while (i !== -1) {
+    let j = pattern.indexOf('}', i);
+    if (j === -1) return false;
+    if (pattern.slice(i + 1, j).includes('..')) return true;
+    i = pattern.indexOf('{', j + 1);
+  }
+  return false;
+};
+
+/**
+ * Compile brace ranges with the `braces` library before matching.
+ * Picomatch's built-in range expander only handles simple `{1..5}` /
+ * `{a..c}` forms; zero-padded (`{01..05}`) and stepped (`{2..10..2}`)
+ * ranges are left as literals unless we compile them first.
+ * @param {String} pattern
+ * @param {Object} options
+ * @return {String}
+ */
+
+const compileBraces = (pattern, options) => {
+  if ((options && options.nobrace === true) || !hasBraceRange(pattern)) {
+    return pattern;
+  }
+  return braces(pattern, options)[0];
+};
+
+/**
  * Returns an array of strings that match one or more glob patterns.
  *
  * ```js
@@ -46,7 +82,7 @@ const micromatch = (list, patterns, options) => {
   };
 
   for (let i = 0; i < patterns.length; i++) {
-    let isMatch = picomatch(String(patterns[i]), { ...options, onResult }, true);
+    let isMatch = picomatch(compileBraces(String(patterns[i]), options), { ...options, onResult }, true);
     let negated = isMatch.state.negated || isMatch.state.negatedExtglob;
     if (negated) negatives++;
 
@@ -106,7 +142,10 @@ micromatch.match = micromatch;
  * @api public
  */
 
-micromatch.matcher = (pattern, options) => picomatch(pattern, options);
+micromatch.matcher = (pattern, options) => {
+  if (typeof pattern === 'string') pattern = compileBraces(pattern, options);
+  return picomatch(pattern, options);
+};
 
 /**
  * Returns true if **any** of the given glob `patterns` match the specified `string`.
@@ -125,7 +164,10 @@ micromatch.matcher = (pattern, options) => picomatch(pattern, options);
  * @api public
  */
 
-micromatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str);
+micromatch.isMatch = (str, patterns, options) => {
+  let compiled = [].concat(patterns).map(p => compileBraces(String(p), options));
+  return picomatch(compiled.length === 1 ? compiled[0] : compiled, options)(str);
+};
 
 /**
  * Backwards compatibility
@@ -265,7 +307,7 @@ micromatch.some = (list, patterns, options) => {
   let items = [].concat(list);
 
   for (let pattern of [].concat(patterns)) {
-    let isMatch = picomatch(String(pattern), options);
+    let isMatch = picomatch(compileBraces(String(pattern), options), options);
     if (items.some(item => isMatch(item))) {
       return true;
     }
@@ -301,7 +343,7 @@ micromatch.every = (list, patterns, options) => {
   let items = [].concat(list);
 
   for (let pattern of [].concat(patterns)) {
-    let isMatch = picomatch(String(pattern), options);
+    let isMatch = picomatch(compileBraces(String(pattern), options), options);
     if (!items.every(item => isMatch(item))) {
       return false;
     }
@@ -341,7 +383,7 @@ micromatch.all = (str, patterns, options) => {
     throw new TypeError(`Expected a string: "${util.inspect(str)}"`);
   }
 
-  return [].concat(patterns).every(p => picomatch(p, options)(str));
+  return [].concat(patterns).every(p => picomatch(compileBraces(String(p), options), options)(str));
 };
 
 /**
@@ -365,7 +407,7 @@ micromatch.all = (str, patterns, options) => {
 
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
-  let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
+  let regex = picomatch.makeRe(compileBraces(String(glob), options), { ...options, capture: true });
   let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
 
   if (match) {
@@ -389,7 +431,10 @@ micromatch.capture = (glob, input, options) => {
  * @api public
  */
 
-micromatch.makeRe = (...args) => picomatch.makeRe(...args);
+micromatch.makeRe = (pattern, options) => {
+  if (typeof pattern === 'string') pattern = compileBraces(pattern, options);
+  return picomatch.makeRe(pattern, options);
+};
 
 /**
  * Scan a glob pattern to separate the pattern into segments. Used
