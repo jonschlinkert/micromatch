@@ -37,6 +37,22 @@ describe('.contains()', () => {
       assert(mm.contains('abcd', 'ab'));
     });
 
+    it('should format the input before checking for a literal substring', () => {
+      let format = str => str.replace(/^build\//, '');
+      assert(!mm.contains('build/foo.js', 'build', { format }));
+      assert(mm.contains('build/foo.js', 'foo', { format }));
+    });
+
+    it('should call the formatter once when the input equals the pattern', () => {
+      let calls = 0;
+      let format = str => {
+        calls++;
+        return str;
+      };
+      assert(mm.contains('foo', 'foo', { format }));
+      assert.strictEqual(calls, 1);
+    });
+
     it('should be true when a glob pattern partially matches the path', () => {
       assert(mm.contains('a/b/c', 'a/*'));
       assert(mm.contains('/ab', '/a'));

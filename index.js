@@ -204,7 +204,7 @@ micromatch.contains = (str, pattern, options) => {
       return false;
     }
 
-    if (str.includes(pattern) || (str.startsWith('./') && str.slice(2).includes(pattern))) {
+    if (!(options && options.format) && (str.includes(pattern) || (str.startsWith('./') && str.slice(2).includes(pattern)))) {
       return true;
     }
   }
