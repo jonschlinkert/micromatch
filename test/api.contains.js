@@ -37,6 +37,73 @@ describe('.contains()', () => {
       assert(mm.contains('abcd', 'ab'));
     });
 
+    it('should format the input before checking for a literal substring', () => {
+      let format = str => str.replace(/^build\//, '');
+      assert(!mm.contains('build/foo.js', 'build', { format }));
+      assert(mm.contains('build/foo.js', 'foo', { format }));
+    });
+
+    it('should call the formatter once when the input equals the pattern', () => {
+      let calls = 0;
+      let format = str => {
+        calls++;
+        return str;
+      };
+      assert(mm.contains('foo', 'foo', { format }));
+      assert.strictEqual(calls, 1);
+    });
+
+    it('should preserve literal substring matches after formatting', () => {
+      let format = str => str;
+      assert(mm.contains('xa{1,2}', 'a{1,2}', { format }));
+      assert(mm.contains('foo!foo', '!foo', { format }));
+      assert(mm.contains('build/xa{1,2}', 'a{1,2}', {
+        format: str => str.replace(/^build\//, '')
+      }));
+    });
+
+    it('should preserve the original input in matcher hooks after formatting', () => {
+      let calls = 0;
+      let results = [];
+      let format = function(str) {
+        assert.strictEqual(this, undefined);
+        calls++;
+        return str.toLowerCase();
+      };
+      assert(mm.contains('TEST/FOO.JS', '*.js', {
+        format,
+        onResult: result => results.push([result.input, result.output])
+      }));
+      assert.strictEqual(calls, 1);
+      assert.deepEqual(results, [['TEST/FOO.JS', 'test/foo.js']]);
+    });
+
+    it('should preserve formatting and hooks for ignore patterns', () => {
+      let calls = 0;
+      let ignored = [];
+      let format = str => {
+        calls++;
+        return str.toLowerCase();
+      };
+      assert(!mm.contains('TEST/FOO.JS', '*.js', {
+        format,
+        ignore: 'test/**',
+        onIgnore: result => ignored.push([result.input, result.output])
+      }));
+      assert.strictEqual(calls, 2);
+      assert.deepEqual(ignored, [['TEST/FOO.JS', 'test/foo.js']]);
+    });
+
+    it('should format once for each tested array pattern', () => {
+      let calls = 0;
+      let format = str => {
+        calls++;
+        return str.replace(/^build\//, '');
+      };
+      assert(mm.contains('build/foo.js', ['build', 'foo', 'unused'], { format }));
+      assert.strictEqual(calls, 2);
+    });
+
     it('should be true when a glob pattern partially matches the path', () => {
       assert(mm.contains('a/b/c', 'a/*'));
       assert(mm.contains('/ab', '/a'));

@@ -204,8 +204,22 @@ micromatch.contains = (str, pattern, options) => {
       return false;
     }
 
-    if (str.includes(pattern) || (str.startsWith('./') && str.slice(2).includes(pattern))) {
+    let format = options && options.format;
+    let output = format ? format(str) : str;
+    if (typeof output === 'string' && (output.includes(pattern) || (output.startsWith('./') && output.slice(2).includes(pattern)))) {
       return true;
+    }
+
+    if (format) {
+      // Reuse the first result; ignore matchers still call the original formatter.
+      let first = true;
+      options = { ...options, format: input => {
+        if (first) {
+          first = false;
+          return output;
+        }
+        return format(input);
+      } };
     }
   }
 
@@ -346,6 +360,7 @@ micromatch.all = (str, patterns, options) => {
 
 /**
  * Returns an array of matches captured by `pattern` in `string, or `null` if the pattern did not match.
+ * If `options.format` is provided, it formats the input before matching and capturing.
  *
  * ```js
  * const mm = require('micromatch');
@@ -365,8 +380,9 @@ micromatch.all = (str, patterns, options) => {
 
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
+  let format = (options && options.format) || (posix ? utils.toPosixSlashes : null);
   let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
-  let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
+  let match = regex.exec(format ? format(input) : input);
 
   if (match) {
     return match.slice(1).map(v => v === void 0 ? '' : v);
