@@ -204,8 +204,22 @@ micromatch.contains = (str, pattern, options) => {
       return false;
     }
 
-    if (!(options && options.format) && (str.includes(pattern) || (str.startsWith('./') && str.slice(2).includes(pattern)))) {
+    let format = options && options.format;
+    let output = format ? format(str) : str;
+    if (typeof output === 'string' && (output.includes(pattern) || (output.startsWith('./') && output.slice(2).includes(pattern)))) {
       return true;
+    }
+
+    if (format) {
+      // Reuse the first result; ignore matchers still call the original formatter.
+      let first = true;
+      options = { ...options, format: input => {
+        if (first) {
+          first = false;
+          return output;
+        }
+        return format(input);
+      } };
     }
   }
 
