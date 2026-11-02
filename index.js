@@ -346,6 +346,7 @@ micromatch.all = (str, patterns, options) => {
 
 /**
  * Returns an array of matches captured by `pattern` in `string, or `null` if the pattern did not match.
+ * If `options.format` is provided, it formats the input before matching and capturing.
  *
  * ```js
  * const mm = require('micromatch');
@@ -365,8 +366,9 @@ micromatch.all = (str, patterns, options) => {
 
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
+  let format = (options && options.format) || (posix ? utils.toPosixSlashes : null);
   let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
-  let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
+  let match = regex.exec(format ? format(input) : input);
 
   if (match) {
     return match.slice(1).map(v => v === void 0 ? '' : v);

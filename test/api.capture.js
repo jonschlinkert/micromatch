@@ -20,6 +20,28 @@ describe('.capture()', () => {
     assert.deepEqual(capture('test/*-controller.js', 'test/foo-controller.js'), ['foo']);
   });
 
+  it('should format the input before capturing matches', () => {
+    let calls = 0;
+    let format = input => {
+      calls++;
+      return input.replace(/^\.\//, '').toLowerCase();
+    };
+    assert.deepEqual(capture('test/*.js', './test/FOO.js', { format }), ['foo']);
+    assert.strictEqual(calls, 1);
+  });
+
+  it('should use the custom formatter instead of Windows normalization', () => {
+    let format = input => {
+      assert.strictEqual(input, 'test\\FOO.js');
+      return input.replace(/\\/g, '/').toLowerCase();
+    };
+    assert.deepEqual(capture('test/*.js', 'test\\FOO.js', { format, windows: true }), ['foo']);
+  });
+
+  it('should preserve the default Windows normalization without a formatter', () => {
+    assert.deepEqual(capture('test/**/*.js', 'test\\dir\\foo.js', { windows: true }), ['dir', 'foo']);
+  });
+
   it('should capture globstars', () => {
     assert.deepEqual(capture('test/**/*.js', 'test/a.js'), ['', 'a']);
     assert.deepEqual(capture('test/**/*.js', 'test/dir/a.js'), ['dir', 'a']);
