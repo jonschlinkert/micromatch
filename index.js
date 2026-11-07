@@ -1,6 +1,7 @@
 'use strict';
 
 const util = require('util');
+const path = require('path');
 const braces = require('braces');
 const picomatch = require('picomatch');
 const utils = require('picomatch/lib/utils');
@@ -366,7 +367,14 @@ micromatch.all = (str, patterns, options) => {
 micromatch.capture = (glob, input, options) => {
   let posix = utils.isWindows(options);
   let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
-  let match = regex.exec(posix ? utils.toPosixSlashes(input) : input);
+  let output = posix ? utils.toPosixSlashes(input) : input;
+
+  // Match the basename before extracting captures, just as the matcher does.
+  if (options && (options.basename === true || options.matchBase === true)) {
+    output = path.basename(output);
+  }
+
+  let match = regex.exec(output);
 
   if (match) {
     return match.slice(1).map(v => v === void 0 ? '' : v);
