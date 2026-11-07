@@ -20,6 +20,28 @@ describe('.capture()', () => {
     assert.deepEqual(capture('test/*-controller.js', 'test/foo-controller.js'), ['foo']);
   });
 
+  it('should capture the basename when basename is enabled', () => {
+    assert.deepEqual(capture('*.js', 'test/foo.js', { basename: true }), ['foo']);
+    assert.deepEqual(capture('*-*.js', 'test/foo-bar.js', { basename: true }), ['foo', 'bar']);
+    assert.deepEqual(capture('**.page.*.html', 'test/page-name.page.js.html', { basename: true }), ['page-name', 'js']);
+    assert.deepEqual(capture('foo.js', 'test/foo.js', { basename: true }), []);
+    assert.equal(capture('*.js', 'test/foo.css', { basename: true }), null);
+    assert.equal(capture('test/*.js', 'test/foo.js', { basename: true }), null);
+  });
+
+  it('should support the matchBase alias when capturing', () => {
+    assert.deepEqual(capture('*.js', 'test/foo.js', { matchBase: true }), ['foo']);
+  });
+
+  it('should normalize Windows paths before capturing the basename', () => {
+    assert.deepEqual(capture('*.js', 'test\\foo.js', { windows: true, basename: true }), ['foo']);
+  });
+
+  it('should capture the full path when basename matching is disabled', () => {
+    assert.equal(capture('*.js', 'test/foo.js', { basename: false }), null);
+    assert.deepEqual(capture('test/*.js', 'test/foo.js', { basename: false }), ['foo']);
+  });
+
   it('should capture globstars', () => {
     assert.deepEqual(capture('test/**/*.js', 'test/a.js'), ['', 'a']);
     assert.deepEqual(capture('test/**/*.js', 'test/dir/a.js'), ['dir', 'a']);
